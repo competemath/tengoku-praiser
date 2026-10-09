@@ -22,7 +22,8 @@ from typing import Iterable
 
 from vendor.juridicator_evidence import canonical_json
 
-from .common import cap_command, case_ref, clip, fit_details, hash_map, make, producer_ref, sha256_bytes
+from .agentrun import tool_policy_fact
+from .common import cap_command, case_ref, clip, fit_details, hash_map, make, producer_ref, require_hex64, sha256_bytes
 
 GROUPS = (("prompt", "prompts"), ("tool manifest", "tool_manifest"), ("toolchain", "toolchain"))
 UNVERIFIABLE = ("model", "model_family", "rubric_version", "human_signoffs")
@@ -48,11 +49,18 @@ def provenance_attestation(
     rubric_version: str,
     human_signoffs: Iterable[str],
     created: str,
+    tool_policy: object = None,
+    jail_spec_sha256: str | None = None,
 ) -> dict:
     """The author system's declaration (`attested.provenance`, outcome pass, verifiability attested).
 
     `prompt_sha256`, `tool_manifest` and `toolchain` are each {stored path: sha-256}: the files, in the repository
     at this commit, whose hashes are being declared. `check_provenance` is what makes them mean something.
+
+    Optionally (both default to nothing, and then the record is exactly what it always was) the declaration also names the agent's
+    confinement: `tool_policy` (the tool policy the agent ran under, a mapping or warden's `ToolPolicy`; its name, tool set and
+    hash are recorded) and `jail_spec_sha256` (the digest of the jail specification). They are declared facts like the rest;
+    `agentrun.agent_contained(..., declared=agentrun.declared_digests(record))` is what checks the audit reports against them.
     """
     prompts = hash_map(prompt_sha256, "prompt_sha256")
     if not prompts:
@@ -75,6 +83,10 @@ def provenance_attestation(
         "human_signoffs": [clip(s, 80) for s in signoffs[:20]],
         "not_checkable": list(UNVERIFIABLE),
     }
+    if tool_policy is not None:
+        details["tool_policy"] = tool_policy_fact(tool_policy)
+    if jail_spec_sha256 is not None:
+        details["jail_spec_sha256"] = require_hex64(jail_spec_sha256, "jail_spec_sha256")
     return make(
         case=case_ref(case),
         producer=producer_ref(producer),

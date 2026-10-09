@@ -74,3 +74,9 @@ careless or colluding), a rebuild runner (may report what it wishes), any text t
 - **P12 Tuning the allowed axioms.** `axiom_closure` takes its allowed set as a parameter because a toolchain's real baseline
   includes more than three names. A permissive set passes everything. It is recorded in the record, and `sorryAx` cannot be in
   it, but a reviewer has to look at the set.
+- **P13 Containment evidence is as honest as the run that produced it.** `agent_contained` weighs two reports it is handed. It cannot
+  tell that the trace is the whole trace, that the battery ran as the agent's identity inside the jail the agent used, or that the
+  jail specification whose digest was declared is the one that was built; the digests let a holder of the stored originals notice a
+  swap, no one else. A passing battery proves the probed vectors were closed on that runner that day (warden `SECURITY.md`, 4); a clean
+  trace shows what this run did, not what the agent could have done. It is a reason to lower scrutiny at most, like every other
+  record here, and a failure rejects.

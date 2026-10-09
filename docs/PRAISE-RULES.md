@@ -28,6 +28,8 @@ is a statement about what a decision can safely rest on.
 | Two independent rebuilds give identical output | counts | reproducible, and the runners must differ |
 | The statement was committed before the proof | counts | a hash plus git ancestry |
 | A blind second formalization is machine-equivalent to the original | counts | the AI only proposed; the machine decided |
+| The agent ran contained: a clean trace audit of its run and an escape battery with every probe denied | counts | `mechanical.agent_contained`: re-run the audit on the stored trace; the record quotes the digest of both reports and of the tool policy, so a swapped report or a lenient policy is detectable. A denied attempt or a probe that did not apply is `inconclusive`, never a pass |
+| The tool policy and jail specification the agent ran under | attested (declared) **and** checkable | the declaration (`tool_policy` name, tool set and hash; `jail_spec_sha256`) is attested; `agent_contained(..., declared=...)` fails when the reports do not match it |
 | A track record | counts, with limits | computed from the public ledger from human-confirmed outcomes; see below |
 
 ## What makes praise count

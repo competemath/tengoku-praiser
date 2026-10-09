@@ -14,6 +14,8 @@ from typing import Iterable
 
 from vendor.juridicator_evidence import canonical_json, sha256_text, validate
 
+from .agentrun import KIND as CONTAINED, line_for_card
+
 DECISIONS = {
     "ACCEPT": "This content was accepted: every check the library requires passed, and nothing is in dispute.",
     "HOLD": "This content is on hold: something the library requires is missing or has to be run again.",
@@ -121,10 +123,29 @@ def _checks(live: list[dict]) -> list[str]:
             "pass": "the stored prompts, tool manifest and toolchain files match what was declared.",
             "fail": "does NOT match: " + _md(e["claim"], 160),
         }.get(e["outcome"], "partly checked: " + _md(e["claim"], 160)))
+    lines += _containment(live)
     for e in sorted(_of(live, "mechanical.statement_preregistered"), key=lambda e: e["id"]):
         lines.append("- Statement fixed before the proof: " + {
             "pass": "yes, it matches a commitment recorded in an earlier commit.",
             "fail": "NO: " + _md(e["claim"], 160)}.get(e["outcome"], "could not be established."))
+    return lines
+
+
+def _containment(live: list[dict]) -> list[str]:
+    """One line per `mechanical.agent_contained` record; nothing at all when there is none, so a card without containment evidence
+    reads exactly as it always did."""
+    lines = []
+    for e in sorted(_of(live, CONTAINED), key=lambda e: e["id"]):
+        outcome, facts = line_for_card(e)
+        tool_set = _md(facts["tool_set"], 120)
+        if outcome == "pass" and facts["total"] and facts["denied"] == facts["total"]:
+            lines.append(f"- The agent ran contained: tool set {tool_set}, escape battery {facts['denied']}/{facts['total']} denied.")
+        elif outcome == "pass":
+            lines.append("- Containment: the record says the agent ran contained but its own counts do not show every probe denied: " + _md(e["claim"], 160))
+        elif outcome == "fail":
+            lines.append("- The agent was NOT shown to be contained: " + _md(e["claim"], 160))
+        else:
+            lines.append("- No containment evidence: " + _md(e["claim"], 160))
     return lines
 
 

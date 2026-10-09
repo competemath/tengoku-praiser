@@ -25,6 +25,7 @@ and what is not) and `docs/IDEAS.md` (what is not built yet).
 | Module | What it turns into evidence | Kind it emits |
 | --- | --- | --- |
 | `praiser/attest.py` | which prompts, tools and toolchain made this: the declaration, and a check of the declared hashes against stored files | `attested.provenance`, `mechanical.provenance_consistent` |
+| `praiser/agentrun.py` | whether the agent ran contained: the trace audit of its run and the escape battery that ran before it (both from [tengoku-warden](https://github.com/competemath/tengoku-warden)), with the digests of both reports and of the tool policy; also the tool-policy and jail-spec facts a provenance declaration can carry | `mechanical.agent_contained` |
 | `praiser/merit.py` | Jinshi findings, proof-checker verdicts (one record per checker), axiom closure, no `sorry`, and the manifest | `mechanical.jinshi.<check>`, `mechanical.kernel_check`, `mechanical.axiom_closure`, `mechanical.no_sorry`, `manifest.declared` |
 | `praiser/restatement.py` | a blind second formalization proposed by an AI, compared by a machine | `mechanical.restatement_match` |
 | `praiser/preregistration.py` | the statement was committed before the proof existed | `mechanical.statement_preregistered` |
@@ -42,6 +43,9 @@ code that touches files. `tests/test_hygiene.py` enforces that.
 python3 -m praiser hash-files --root checkout prompts/main.md tools/manifest.json lean-toolchain
 python3 -m praiser attest --case case.json --producer author.json --spec spec.json --created 2026-10-09T00:00:00Z --out provenance.json
 python3 -m praiser check-provenance --declared provenance.json --root checkout --case case.json --producer praiser.json --created ...
+python3 -m praiser agent-contained --case case.json --producer praiser.json --created ... --policy tool-policy.json \
+    --trace-report trace-report.json --selftest-report selftest.json [--declared provenance.json] --out contained.json
+python3 -m praiser agent-contained ... --verify contained.json                               # exit 12 if the stored reports do not match
 python3 -m praiser track-record --ledger ledger.jsonl --author agent-7                       # print the numbers
 python3 -m praiser track-record --ledger ledger.jsonl --author agent-7 --case case.json --producer praiser.json --created ...
 python3 -m praiser track-record --ledger ledger.jsonl --verify record.json                   # exit 12 if forged or stale

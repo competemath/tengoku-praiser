@@ -1,7 +1,8 @@
 """Command line. Reads and writes JSON files. Exit codes: 0 ok, 2 bad input.
 
 `track-record --verify` additionally exits 12 when the claimed record does not match the ledger (like the juridicator's
-`ledger-verify`). Every command that stamps a time takes `--created` explicitly: nothing here reads a clock.
+`ledger-verify`), and so does `agent-contained --verify` when a record does not match the stored reports. Every command that
+stamps a time takes `--created` explicitly: nothing here reads a clock.
 """
 
 from __future__ import annotations
@@ -9,7 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import attest, merit, preregistration, receipts, track_record, trustcard
+from . import agentrun, attest, merit, preregistration, receipts, track_record, trustcard
 from .common import sha256_bytes
 from .loaders import InputError, read_files_under, read_json, read_ledger, read_records, write_json
 
@@ -28,6 +29,16 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("attest", help="write an attested.provenance record from a spec file")
     _common(p)
     p.add_argument("--spec", required=True, help="JSON: model, model_family, prompt_sha256, tool_manifest, toolchain, rubric_version, human_signoffs")
+    p = sub.add_parser("agent-contained", help="turn a trace-audit report and an escape-battery report into mechanical.agent_contained")
+    _common(p)
+    p.add_argument("--policy", required=True, help="JSON: the tool policy the agent ran under (name, builtin_tools, mcp_patterns, ...)")
+    p.add_argument("--trace-report", help="the JSON written by `python3 -m warden toolpolicy audit-trace --json`; omitted = not run")
+    p.add_argument("--selftest-report", help="the JSON written by `python3 -m warden selftest --json`; omitted = not run")
+    p.add_argument("--jail-spec", help="JSON describing how the jail was built (its digest is recorded)")
+    p.add_argument("--declared", help="an attested.provenance record (or a JSON object of declared digests) the reports must match")
+    p.add_argument("--trace-path", default="trace.jsonl", help="where the stored trace lives, for the reproduce command")
+    p.add_argument("--workspace", action="append", default=[], help="a workspace directory the audit allowed (repeatable)")
+    p.add_argument("--verify", help="an existing record to check against the reports: exits 12 and lists problems if it does not match")
     p = sub.add_parser("hash-files", help="print {path: sha-256} for files in a checkout")
     p.add_argument("--root", required=True)
     p.add_argument("paths", nargs="+")
@@ -108,7 +119,22 @@ def _run(args: argparse.Namespace) -> int:
             raise InputError("spec must be an object")
         rec = attest.provenance_attestation(case, producer, created=args.created, **{
             k: spec.get(k) for k in ("model", "model_family", "prompt_sha256", "tool_manifest", "toolchain", "rubric_version")
-        }, human_signoffs=spec.get("human_signoffs", []))
+        }, human_signoffs=spec.get("human_signoffs", []), tool_policy=spec.get("tool_policy"),
+            jail_spec_sha256=spec.get("jail_spec_sha256"))
+    elif args.cmd == "agent-contained":
+        policy = read_json(args.policy)
+        trace = read_json(args.trace_report) if args.trace_report else None
+        battery = read_json(args.selftest_report) if args.selftest_report else None
+        spec = read_json(args.jail_spec) if args.jail_spec else None
+        declared = read_json(args.declared) if args.declared else None
+        if isinstance(declared, dict) and "kind" in declared:
+            declared = agentrun.declared_digests(declared)
+        if args.verify:
+            problems = agentrun.verify_agent_contained(read_json(args.verify), trace, battery, policy, jail_spec=spec, declared=declared)
+            write_json({"ok": not problems, "problems": problems}, args.out)
+            return 0 if not problems else 12
+        rec = agentrun.agent_contained(trace, battery, policy, case, producer, args.created, jail_spec=spec, declared=declared,
+                                       trace_path=args.trace_path, workspaces=args.workspace)
     elif args.cmd == "check-provenance":
         declared = read_json(args.declared)
         d = declared.get("details", declared) if isinstance(declared, dict) else None
