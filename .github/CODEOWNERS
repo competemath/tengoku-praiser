@@ -1,0 +1,5 @@
+# What counts as praise, the vendored contract and the reputation formula are written by people. An AI may propose a change; it cannot merge one.
+/.github/                   @mikael-bashir
+/docs/PRAISE-RULES.md       @mikael-bashir
+/vendor/                    @mikael-bashir
+/praiser/track_record.py    @mikael-bashir
