@@ -72,5 +72,6 @@ there is not (as in CI).
 
 ## Status
 
-A seed. The evidence builders, the track-record formula and re-deriver, and the trust card are real and tested; signing,
-the lottery-bound labels in `docs/IDEAS.md`, and the live pipeline are not built. Private while it matures.
+A working seed. The evidence builders, the track-record formula and re-deriver (`track-record --verify` prints the id the judge
+wants), and the trust card are real and tested. Signing lives in the juridicator (`sign`); the lottery-bound labels in
+`docs/IDEAS.md` and the live pipeline are not built. The whole flow is in the juridicator's `docs/PIPELINE.md`. Apache-2.0.

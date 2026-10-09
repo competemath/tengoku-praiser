@@ -67,9 +67,10 @@ careless or colluding), a rebuild runner (may report what it wishes), any text t
   command so a reviewer can redo it. Unknown ancestry is `inconclusive`, never a pass.
 - **P10 The card is a rendering, not a boundary.** Escaping is tested against the common Markdown and HTML injections;
   Markdown renderers differ. The card must not be used to decide anything.
-- **P11 Guessed command lines.** Defaults for `reproduce.command` where the real tool's command line is not known to this
-  repository (the Jinshi template, the per-checker sentence, the axiom and sorry scans) are placeholders that satisfy the
-  contract; real callers must pass real commands, or the record is checkable only in principle.
+- **P11 Some command lines are still guesses.** The Jinshi command, the `lean-kernel`, `leanchecker` and `lean4lean`
+  checker commands and the sorry scan are real. The axiom scan (`scripts/print_axioms.lean`) and the commands for other
+  checkers such as `nanoda` are not known to this repository: pass the real ones (`command=`, `commands=`), or the record is
+  checkable only in principle.
 - **P12 Tuning the allowed axioms.** `axiom_closure` takes its allowed set as a parameter because a toolchain's real baseline
   includes more than three names. A permissive set passes everything. It is recorded in the record, and `sorryAx` cannot be in
   it, but a reviewer has to look at the set.

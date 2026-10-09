@@ -10,6 +10,7 @@ protects the results written under the same identity as the manifest. Declare on
 
 from __future__ import annotations
 
+import shlex
 from collections import Counter
 from typing import Iterable
 
@@ -21,6 +22,15 @@ STANDARD_AXIOMS = ("propext", "Classical.choice", "Quot.sound")
 CHECKER_OUTCOMES = {"accept": "pass", "reject": "fail", "timeout": "inconclusive", "error": "inconclusive"}
 NEVER_ALLOWED = ("sorryAx",)
 
+
+# The real Jinshi executable (lakefile.jinshi.toml in the jinshi repository): one examination of one module per run.
+JINSHI_COMMAND = "lake env .lake/build/bin/tengoku-jinshi --module {module} --check {check}"
+# Command lines for the checkers Tengoku already runs, by the name they report under. Others get a sentence, or pass `commands`.
+CHECKER_COMMANDS = {
+    "lean-kernel": "lake build",
+    "leanchecker": "lake env leanchecker Tengoku",
+    "lean4lean": "JINSHI_LEAN4LEAN=/path/to/lean4lean python3 scripts/jinshi/run.py --round 0 --checks lean4lean --out jinshi-out",
+}
 
 def _finding(f: object) -> dict:
     if not isinstance(f, dict) or not isinstance(f.get("check"), str) or not f["check"].strip():
@@ -36,7 +46,8 @@ def from_jinshi(
     created: str,
     *,
     ran: Iterable[str] = (),
-    command_template: str = "jinshi --check {check}",
+    command_template: str = JINSHI_COMMAND,
+    module: str = "Tengoku",
 ) -> list[dict]:
     """One `mechanical.jinshi.<check>` record per check.
 
@@ -46,8 +57,8 @@ def from_jinshi(
       pass      if it has findings but none failed, or if it has none and the caller lists it in `ran`;
       not_run   if it has no findings and the caller does not say it ran (silence is not a pass).
     A finding for a check that was not declared still gets its record, because a failure must never be dropped for
-    being unexpected. `command_template` is how anyone re-runs one check (`{check}` is replaced); confirm it matches the
-    real Jinshi command line before relying on it.
+    being unexpected. `command_template` is how anyone re-runs one check (`{check}` and `{module}` are replaced, shell-quoted); the default
+    is the real Jinshi executable's own command line (its `--module` and `--check` options).
     """
     findings = [_finding(f) for f in findings]
     declared = {str(c) for c in checks}
@@ -83,7 +94,7 @@ def from_jinshi(
         out.append(make(
             case=case_r, producer=prod_r, kind=f"mechanical.jinshi.{part}", claim=clip(claim), outcome=outcome,
             verifiability="mechanical", created=created,
-            reproduce={"command": cap_command(command_template.format(check=name))},
+            reproduce={"command": cap_command(command_template.format(check=shlex.quote(name), module=shlex.quote(module)))},
             details=fit_details(details, ("failing",)),
         ))
     return out
@@ -110,7 +121,7 @@ def from_checkers(verdicts: dict, case: dict, created: str, *, commands: dict | 
         outcome = CHECKER_OUTCOMES[verdict]
         who = {"role": "tooling", "name": clip(name, 80), "identity": clip(name, 120)}
         producer_ref(who)
-        command = commands.get(name) or f"run the independent proof checker '{clip(name, 60)}' on this commit's compiled output"
+        command = commands.get(name) or CHECKER_COMMANDS.get(name) or f"run the independent proof checker '{clip(name, 60)}' on this commit's compiled output"
         out.append(make(
             case=case_r, producer=who, kind="mechanical.kernel_check",
             claim=clip(f"Checker {name} {verdict}s this commit's proofs." if verdict in ("accept", "reject")
@@ -128,7 +139,7 @@ def axiom_closure(
     created: str,
     allowed: Iterable[str] = STANDARD_AXIOMS,
     *,
-    command: str = "lake env lean --run scripts/print_axioms.lean",
+    command: str = "lake env lean --run scripts/print_axioms.lean",  # a guess: pass the toolchain's real scan (SECURITY.md P11)
 ) -> dict:
     """`mechanical.axiom_closure`: pass when every axiom the proofs depend on is in `allowed`, else fail naming the others.
 

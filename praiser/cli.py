@@ -85,8 +85,10 @@ def _run(args: argparse.Namespace) -> int:
         entries = read_ledger(args.ledger)
         humans = read_json(args.humans) if args.humans else None
         if args.verify:
-            ok, problems = track_record.verify_against_ledger(read_json(args.verify), entries, humans=humans, max_lag=args.max_lag)
-            write_json({"ok": ok, "problems": problems}, args.out)
+            claimed = read_json(args.verify)
+            ok, problems = track_record.verify_against_ledger(claimed, entries, humans=humans, max_lag=args.max_lag)
+            # `verified_id` is what the judge's `--verified-ids` wants: present only when the ledger reproduces the record.
+            write_json({"ok": ok, "problems": problems, "verified_id": claimed.get("id") if ok else None}, args.out)
             return 0 if ok else 12
         if not args.author:
             raise InputError("--author is required")

@@ -243,3 +243,20 @@ class Commands(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VerifiedId(Base):
+    def test_verify_prints_the_id_only_when_the_ledger_reproduces_the_record(self):
+        chain = Chain()
+        chain.accepted(12)
+        ledger = self.write("l.jsonl", "".join(json.dumps(e) + "\n" for e in chain.entries))
+        rec = track_record_evidence("agent-7", chain.entries, CASE, PRAISER, NOW)
+        good = self.write("good.json", rec)
+        code, out, _ = run("track-record", "--ledger", ledger, "--verify", good)
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["verified_id"], rec["id"])
+        forged = dict(rec, details=dict(rec["details"], lower_bound=0.99))
+        bad = self.write("bad.json", forged)
+        code, out, _ = run("track-record", "--ledger", ledger, "--verify", bad)
+        self.assertEqual(code, 12)
+        self.assertIsNone(json.loads(out)["verified_id"])

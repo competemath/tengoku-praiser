@@ -60,6 +60,22 @@ class Jinshi(unittest.TestCase):
         ev = self.run_it([], ["a"], ran=["a"], command_template="jinshi run {check} --strict")["mechanical.jinshi.a"]
         self.assertEqual(ev["reproduce"]["command"], "jinshi run a --strict")
 
+    def test_default_command_is_the_real_jinshi_executable_and_inputs_are_quoted(self):
+        ev = self.run_it([], ["tcb"], ran=["tcb"])["mechanical.jinshi.tcb"]
+        self.assertEqual(ev["reproduce"]["command"], "lake env .lake/build/bin/tengoku-jinshi --module Tengoku --check tcb")
+        evil = self.run_it([], ["a; rm -rf x"], ran=["a; rm -rf x"], module="M $(x)")
+        (only,) = evil.values()
+        self.assertIn("'a; rm -rf x'", only["reproduce"]["command"])
+        self.assertIn("'M $(x)'", only["reproduce"]["command"])
+
+    def test_known_checkers_get_real_commands_and_explicit_commands_win(self):
+        recs = {e["producer"]["identity"]: e for e in from_checkers({"lean-kernel": "accept", "lean4lean": "accept", "nanoda": "accept"}, CASE, NOW)}
+        self.assertEqual(recs["lean-kernel"]["reproduce"]["command"], "lake build")
+        self.assertIn("scripts/jinshi/run.py", recs["lean4lean"]["reproduce"]["command"])
+        self.assertTrue(recs["nanoda"]["reproduce"]["command"].startswith("run the independent proof checker"))
+        mine = from_checkers({"lean-kernel": "accept"}, CASE, NOW, commands={"lean-kernel": "my build"})[0]
+        self.assertEqual(mine["reproduce"]["command"], "my build")
+
     def test_many_failures_stay_inside_the_size_limit(self):
         fs = [finding("a", "fail", module="M" * 90, name="n" * 90, detail="d" * 400) for _ in range(200)]
         ev = self.run_it(fs, ["a"])["mechanical.jinshi.a"]
