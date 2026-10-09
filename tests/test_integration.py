@@ -35,7 +35,9 @@ PROMPT, TOOLS, CHAIN = b"prompt", b"tools", b"toolchain"
 
 
 def judge(evidence):
-    return decide(CASE, evidence, None, standing=STANDING)
+    """The caller's part of the flow: it re-derived the track records from the ledger it holds and names their ids."""
+    verified = [e["id"] for e in evidence if e.get("kind") == "reproducible.track_record" and e["producer"]["identity"] == PIDENT]
+    return decide(CASE, evidence, None, standing=STANDING, verified=verified)
 
 
 def comparable(verdict):
