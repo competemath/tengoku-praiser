@@ -32,6 +32,7 @@ and what is not) and `docs/IDEAS.md` (what is not built yet).
 | `praiser/receipts.py` | two independent rebuilds agree | `reproducible.rebuild_match` |
 | `praiser/track_record.py` | a reliability bound recomputed from the public ledger, and a re-deriver that catches a forged one | `reproducible.track_record` |
 | `praiser/reviewer.py` | the reviewer's checks (style, naming, docs, API, duplicates, reuse, helpers, `#lint`, generalisation, minimal proofs, robustness, forward compatibility) over Lean modules; `docs/REVIEWER.md` | `mechanical.review.<check>` |
+| `praiser/bar.py` | the bar (`bar/0`): the reviewer's findings to a verdict per theorem (accept, return with codes, reject); used by the studied lane's intake job | (not evidence; reads findings) |
 | `praiser/trustcard.py` | a plain-language Markdown card for a theorem or pull request | (not evidence; reads a verdict and evidence) |
 | `praiser/cli.py` | `python -m praiser ...` | |
 

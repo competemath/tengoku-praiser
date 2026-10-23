@@ -57,3 +57,11 @@ scrubbed environment, a scratch `HOME`, its own process group (killed on timeout
   exist does not compile). Rehearse once on the pinned toolchain after a bump: `tests/` run against fakes, never against Lean.
 - Nothing here judges whether a result is *worth having*. `reuse` and `dedupe` give evidence for that question; the answer is the
   statute's and, where it asks, a person's.
+
+## The bar
+
+`praiser/bar.py` (`bar/0`) turns the findings into a verdict per theorem for the studied lane's intake job (competemath/emissary-archangel, `scripts/memory_intake`): **accept** (nothing blocks
+it and it shows merit), **return** (something blocks it that its author can fix: the codes, in the vocabulary of the notices at competemath.com, say what) or **reject** (final: a `sorry`,
+`native_decide`, an axiom or `unsafe`, a statement already in the tree). Blocking is any `fail` finding and an `inconclusive` one of a check that ran. Merit is at least one of: the library
+proves an instance of it inline (`reuse`), it generalises existing statements (`dedupe`), five stars, another theorem of the bundle uses it. The tables are in the file; the version
+travels with every verdict. It is a prototype's bar, set to be strict about content and cheap to change.
