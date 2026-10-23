@@ -10,9 +10,14 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import agentrun, attest, merit, preregistration, receipts, track_record, trustcard
+import os
+import shlex
+
+from . import agentrun, attest, dedupe, leansrc, merit, preregistration, receipts, reviewer, track_record, trustcard
 from .common import sha256_bytes
-from .loaders import InputError, read_files_under, read_json, read_ledger, read_records, write_json
+from .loaders import (CommandCompile, InputError, read_files_under, read_json, read_ledger, read_lean_modules, read_records, write_json,
+                      write_text)
+from .review import command_template
 
 
 def _common(p: argparse.ArgumentParser, *, created: bool = True) -> None:
@@ -75,6 +80,21 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("compare-receipts", help="compare two rebuild receipts")
     _common(p)
     p.add_argument("receipts", nargs=2)
+    p = sub.add_parser("review", help="run the reviewer's checks over Lean modules: one mechanical.review.<check> record per check")
+    _common(p)
+    p.add_argument("--module", action="append", default=[], required=True, help="a .lean file or a directory of them (repeatable)")
+    p.add_argument("--root", help="module names are paths under this directory (default: the directory given)")
+    p.add_argument("--index", action="append", default=[], help="a directory of .lean files already in the library: duplicates, reuse and known names")
+    p.add_argument("--checks", nargs="+", default=list(reviewer.ALL_CHECKS), help="default: all; those that need Lean are not_run without --compile-cmd")
+    p.add_argument("--compile-cmd", help="the toolchain the library builds with: run as `CMD <file.lean>`; exit 0 compiled, 1 error, else no answer")
+    p.add_argument("--forward-cmd", help="the toolchain the library will move to (for the compat check)")
+    p.add_argument("--timeout", type=float, default=600.0, help="seconds per compiler call")
+    p.add_argument("--total-calls", type=int, default=reviewer.DEFAULT_TOTAL_CALLS)
+    p.add_argument("--per-theorem", type=int, default=reviewer.DEFAULT_PER_THEOREM)
+    p.add_argument("--compat-severity", choices=("warn", "fail"), default="warn")
+    p.add_argument("--header-pattern", help="regular expression every file must start with")
+    p.add_argument("--findings", help="write every finding here (patches replaced by their file names)")
+    p.add_argument("--patches-dir", help="write each verified patch here as <sha256 prefix>.lean")
     return ap
 
 
@@ -113,6 +133,8 @@ def _run(args: argparse.Namespace) -> int:
             write_json(track_record.compute(entries, args.author, humans=humans, as_of_seq=args.as_of), args.out)
         return 0
     case, producer = read_json(args.case), read_json(args.producer)
+    if args.cmd == "review":
+        return _review(args, case, producer)
     if args.cmd == "attest":
         spec = read_json(args.spec)
         if not isinstance(spec, dict):
@@ -158,6 +180,51 @@ def _run(args: argparse.Namespace) -> int:
     else:  # pragma: no cover - argparse refuses unknown commands
         raise InputError(f"unknown command {args.cmd}")
     write_json(rec, args.out)
+    return 0
+
+
+def _review(args: argparse.Namespace, case: dict, producer: dict) -> int:
+    modules = read_lean_modules(args.module, args.root)
+    if not modules:
+        raise InputError("no .lean module found")
+    index = None
+    known: frozenset = frozenset()
+    if args.index:
+        library = read_lean_modules(args.index)
+        index = dedupe.Index.of(library)
+        known = frozenset(d.full_name for t in library.values() for d in leansrc.declarations(t) if d.full_name)
+    primary = CommandCompile(args.compile_cmd, args.timeout) if args.compile_cmd else None
+    forward = CommandCompile(args.forward_cmd, args.timeout) if args.forward_cmd else None
+    result = reviewer.review(modules, checks=tuple(args.checks), primary=primary, forward=forward, index=index, known=known, taken=known,
+                             header_pattern=args.header_pattern, total_calls=args.total_calls, per_theorem=args.per_theorem,
+                             compat_severity=args.compat_severity)
+    again = ["python3", "-m", "praiser", "review", "--case", args.case, "--producer", args.producer, "--created", args.created]
+    for m in args.module:
+        again += ["--module", m]
+    for opt, value in (("--root", args.root), ("--compile-cmd", args.compile_cmd), ("--forward-cmd", args.forward_cmd),
+                       ("--header-pattern", args.header_pattern)):
+        if value:
+            again += [opt, value]
+    for i in args.index:
+        again += ["--index", i]
+    again += ["--total-calls", str(args.total_calls), "--per-theorem", str(args.per_theorem), "--compat-severity", args.compat_severity]
+    template = " ".join(shlex.quote(a) for a in again) + " --checks {check}"
+    records = [merit.manifest(case, producer, [f"mechanical.review.{c}" for c in result.requested], args.created)]
+    records += reviewer.evidence(result, case, producer, args.created, command_template(template))
+    if args.patches_dir:
+        os.makedirs(args.patches_dir, exist_ok=True)
+    shown = []
+    for f in result.findings:
+        row = dict(f)
+        if isinstance(row.get("patch"), str):
+            name = sha256_bytes(row["patch"].encode("utf-8"))[:16] + ".lean"
+            if args.patches_dir:
+                write_text(os.path.join(args.patches_dir, name), row["patch"])
+            row["patch"] = name
+        shown.append(row)
+    if args.findings:
+        write_json({"ran": result.ran, "calls": result.calls, "budget_exhausted": result.exhausted, "findings": shown}, args.findings)
+    write_json(records, args.out)
     return 0
 
 

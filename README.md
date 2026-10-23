@@ -31,6 +31,8 @@ and what is not) and `docs/IDEAS.md` (what is not built yet).
 | `praiser/preregistration.py` | the statement was committed before the proof existed | `mechanical.statement_preregistered` |
 | `praiser/receipts.py` | two independent rebuilds agree | `reproducible.rebuild_match` |
 | `praiser/track_record.py` | a reliability bound recomputed from the public ledger, and a re-deriver that catches a forged one | `reproducible.track_record` |
+| `praiser/reviewer.py` | the reviewer's checks (style, naming, docs, API, duplicates, reuse, helpers, `#lint`, generalisation, minimal proofs, robustness, forward compatibility) over Lean modules; `docs/REVIEWER.md` | `mechanical.review.<check>` |
+| `praiser/bar.py` | the bar (`bar/0`): the reviewer's findings to a verdict per theorem (accept, return with codes, reject); used by the studied lane's intake job | (not evidence; reads findings) |
 | `praiser/trustcard.py` | a plain-language Markdown card for a theorem or pull request | (not evidence; reads a verdict and evidence) |
 | `praiser/cli.py` | `python -m praiser ...` | |
 
@@ -50,6 +52,8 @@ python3 -m praiser track-record --ledger ledger.jsonl --author agent-7          
 python3 -m praiser track-record --ledger ledger.jsonl --author agent-7 --case case.json --producer praiser.json --created ...
 python3 -m praiser track-record --ledger ledger.jsonl --verify record.json                   # exit 12 if forged or stale
 python3 -m praiser card --verdict verdict.json --evidence evidence/ --out card.md
+python3 -m praiser review --case case.json --producer praiser.json --created ... --module bundle/ --index tree/ \
+    --compile-cmd 'lake env lean' --forward-cmd '...' --patches-dir patches/ --findings findings.json --out review-evidence.json
 python3 -m praiser manifest --case case.json --producer praiser.json --checks reproducible.rebuild_match --created ...
 python3 -m praiser check-prereg ... ; python3 -m praiser compare-receipts a.json b.json --case ... 
 python3 -m unittest discover -s tests
@@ -58,7 +62,8 @@ python3 -m unittest discover -s tests
 Exit codes: 0 ok, 2 bad input (`track-record --verify` also exits 12 when the record does not match the ledger). Nothing reads
 a clock: every command that stamps a record takes `--created`.
 
-Standard library only; Python 3.12; no network; no Lean is built or run; no AI is called anywhere.
+Standard library only; Python 3.12; no network; no AI is called anywhere. No logic module runs Lean: `review --compile-cmd` runs the
+command you name, in `loaders.py` (see `docs/REVIEWER.md` for why that must happen where a hostile module can do no harm).
 
 ## The contract
 
